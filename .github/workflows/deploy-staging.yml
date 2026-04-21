@@ -1,0 +1,47 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare staging payload (noindex + robots block + strip GA + swap htaccess + clean internals)
+        run: |
+          # Use staging robots
+          cp robots-staging.txt robots.txt
+
+          # Inject noindex meta into every HTML
+          find . -name "*.html" -not -path "./.git/*" -exec sed -i 's/<head>/<head><meta name="robots" content="noindex, nofollow">/' {} \;
+
+          # Remove sitemap from staging payload
+          rm -f sitemap.xml
+
+          # Strip GA blocks between markers
+          find . -name "*.html" -not -path "./.git/*" -exec sed -i '/<!-- GA_START -->/,/<!-- GA_END -->/d' {} \;
+
+          # Swap in staging .htaccess
+          cp .htaccess-staging .htaccess
+
+          # Remove internals that must not ship
+          rm -rf .git .claude .github .superpowers \
+                 .htaccess-staging robots-staging.txt \
+                 .env.example SETUP.md CONTRIBUTING.md
+          # Drop docs/ except whitelisted PDFs, specs, brand (harmless on staging but unnecessary)
+          find docs -type f ! -name "*.pdf" -delete 2>/dev/null || true
+          find docs -type d -empty -delete 2>/dev/null || true
+
+      - name: Deploy via SFTP
+        env:
+          LFTP_PASSWORD: ${{ secrets.OVH_PASSWORD }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp > /dev/null 2>&1
+          lftp -u "${{ secrets.OVH_USERNAME }}","$LFTP_PASSWORD" \
+            -e "set sftp:auto-confirm yes; set net:timeout 30; set net:max-retries 2; mirror -R --verbose . ${{ secrets.OVH_STAGING_DIR }}; quit" \
+            sftp://${{ secrets.OVH_HOST }}

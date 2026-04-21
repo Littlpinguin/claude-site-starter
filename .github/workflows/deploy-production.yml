@@ -1,0 +1,30 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clean non-production files
+        run: |
+          rm -rf .git .claude .github .superpowers \
+                 .htaccess-staging robots-staging.txt \
+                 .env.example SETUP.md CONTRIBUTING.md
+          find docs -type f ! -name "*.pdf" -delete 2>/dev/null || true
+          find docs -type d -empty -delete 2>/dev/null || true
+
+      - name: Deploy via SFTP
+        env:
+          LFTP_PASSWORD: ${{ secrets.OVH_PASSWORD }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp > /dev/null 2>&1
+          lftp -u "${{ secrets.OVH_USERNAME }}","$LFTP_PASSWORD" \
+            -e "set sftp:auto-confirm yes; set net:timeout 30; set net:max-retries 2; mirror -R --verbose . ${{ secrets.OVH_PROD_DIR }}; quit" \
+            sftp://${{ secrets.OVH_HOST }}
