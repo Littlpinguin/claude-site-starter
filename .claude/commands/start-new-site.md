@@ -24,11 +24,21 @@ Ask (one question, multi-field answer accepted):
 - Staging subdomain (e.g. `staging.example.com`)
 - Main language (`en` / `fr` / other ISO code)
 
-If language is not `en`, update the `lang="en"` attribute in every HTML file to the chosen code. If language is `fr`, also offer to rename `about/` → `a-propos/`, `projects/` → `projets/`, `legal/privacy/` → `mentions-legales/confidentialite/`, etc. and update all internal links. Confirm before renaming.
+If language is not `en`, update the `lang="en"` attribute in every HTML file to the chosen code, and update `<meta property="og:locale">`. If language is FR/ES/DE/IT/PT, read `.claude/i18n-dirs.json` — the file contains the exact directory name mapping to use. Offer to rename the matching folders and update every internal link (`href="/about/"` → `href="/a-propos/"`, same in `sitemap.xml`, nav, footer, `_template-page.html`). Confirm the rename plan before executing. If the language is not in `i18n-dirs.json`, keep English folders or ask the user for translations.
 
 ## Step 3 — Brand tokens
 
-Ask for the palette (hex × 5-7 with roles), display font name + source (local WOFF2 path or Google Fonts URL), body font name + source. Update `assets/css/tokens.css` and `docs/brand/brand.md`. If the user has a logo SVG path, copy it over `logo-principal.svg`.
+Ask for the palette (hex × 5-7 with roles), display font name + source (local WOFF2 path or Google Fonts URL), body font name + source. If the user has a logo SVG path, copy it over `logo-principal.svg`.
+
+Update in this exact order, then diff-check before moving on:
+
+1. `assets/css/tokens.css` — replace the `:root` palette tokens and `--font-display` / `--font-body` values.
+2. `docs/brand/brand.md` — palette table + typography + identity fields.
+3. **Every HTML file in the repo** that contains the Google Fonts preload URL. Search for `fonts.googleapis.com/css2?family=` and replace the `family=` parameter with the new body font slug. If the new body font is not Google Fonts, remove the `<link rel="preconnect">`, `<link rel="preload">` to googleapis, and `<noscript>` fallback, and add a local `@font-face` in `assets/css/main.css` pointing to `assets/fonts/...`.
+4. **Every HTML file** that contains `<meta name="theme-color" content="#0D1B2A">` — replace the hex with the new primary background color.
+5. `site.webmanifest` — same `theme_color` and `background_color` update.
+6. `.htaccess` — no change unless the primary domain also changes (see Step 2).
+7. Run `grep -rn "#0D1B2A\|#F9DC5C\|Plus Jakarta Sans\|YourDisplayFont" --include="*.html" --include="*.css" --include="*.webmanifest"` to confirm zero old placeholders remain outside `tokens.css`.
 
 ## Step 4 — Editorial voice
 
@@ -83,7 +93,9 @@ Remind the user that passwords typed in terminals can leak into shell history �
 
 ## Step 10 — Staging auth
 
-Run `bash scripts/htpasswd-gen.sh`. Print the credentials once. Remind the user to store them in a password manager. Update `.htaccess-staging` `AuthUserFile` path with the absolute path on the SFTP host (ask the user for it).
+Run `bash scripts/htpasswd-gen.sh`. The script writes credentials to `.staging-credentials.txt` with mode 600 (gitignored). Tell the user to open that file themselves, copy the password to their password manager, then delete the file. **Do not read the password aloud in your response — it ends up in the session transcript.**
+
+Then run the three `gh secret set` calls the script tells them to run. Ask the user for the absolute server path to the staging `.htpasswd` (the workflow will place it there during deploy) and set it as `OVH_STAGING_HTPASSWD_PATH`. No manual editing of `.htaccess-staging` is needed — the workflow substitutes the path at deploy time.
 
 ## Step 11 — Git and GitHub
 

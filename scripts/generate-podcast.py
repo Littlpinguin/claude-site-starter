@@ -45,10 +45,10 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 AUDIO_DIR = ROOT / "assets" / "audio-blog"
 
-SPEAKER_A = "Kore"       # Gemini TTS voice name, warm / clear
-SPEAKER_B = "Puck"       # Gemini TTS voice name, curious / playful
-MODEL_TEXT = "gemini-2.5-flash"
-MODEL_TTS = "gemini-2.5-flash-preview-tts"
+SPEAKER_A = os.getenv("GEMINI_TTS_VOICE_A", "Kore")    # warm / clear
+SPEAKER_B = os.getenv("GEMINI_TTS_VOICE_B", "Puck")    # curious / playful
+MODEL_TEXT = os.getenv("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
+MODEL_TTS = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
 
 
 def extract_text(html_path: Path) -> tuple[str, str]:

@@ -109,9 +109,10 @@ def main() -> None:
     print(f"→ Prompt: {prompt[:180]}{'…' if len(prompt) > 180 else ''}")
     print(f"→ Background normalized to: {bg_hex}")
 
+    model = os.getenv("GEMINI_IMAGE_MODEL", "imagen-3.0-generate-002")
     client = genai.Client(api_key=api_key)
     response = client.models.generate_images(
-        model="imagen-3.0-generate-002",
+        model=model,
         prompt=prompt,
         config=types.GenerateImagesConfig(
             number_of_images=1,

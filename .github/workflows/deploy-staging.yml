@@ -11,28 +11,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Generate .htpasswd from secrets
+        env:
+          USER: ${{ secrets.STAGING_HTPASSWD_USER }}
+          PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
+        run: |
+          if [ -z "${USER:-}" ] || [ -z "${PASS:-}" ]; then
+            echo "::error::STAGING_HTPASSWD_USER and STAGING_HTPASSWD_PASS must be set as GitHub Actions secrets."
+            exit 1
+          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq apache2-utils > /dev/null 2>&1
+          htpasswd -cbB .htpasswd "$USER" "$PASS" >/dev/null
+
+      - name: Substitute AuthUserFile path in .htaccess-staging
+        env:
+          HTPASSWD_PATH: ${{ secrets.OVH_STAGING_HTPASSWD_PATH }}
+        run: |
+          if [ -z "${HTPASSWD_PATH:-}" ]; then
+            echo "::error::OVH_STAGING_HTPASSWD_PATH must be set as a GitHub Actions secret (absolute server path to .htpasswd, e.g. /home/user/www/staging/.htpasswd)."
+            exit 1
+          fi
+          # Use a safe delimiter — absolute paths contain /
+          python3 -c "
+          import pathlib, os
+          p = pathlib.Path('.htaccess-staging')
+          p.write_text(p.read_text().replace('__HTPASSWD_ABS_PATH__', os.environ['HTPASSWD_PATH']))
+          "
+
       - name: Prepare staging payload (noindex + robots block + strip GA + swap htaccess + clean internals)
         run: |
-          # Use staging robots
           cp robots-staging.txt robots.txt
-
-          # Inject noindex meta into every HTML
           find . -name "*.html" -not -path "./.git/*" -exec sed -i 's/<head>/<head><meta name="robots" content="noindex, nofollow">/' {} \;
-
-          # Remove sitemap from staging payload
           rm -f sitemap.xml
-
-          # Strip GA blocks between markers
           find . -name "*.html" -not -path "./.git/*" -exec sed -i '/<!-- GA_START -->/,/<!-- GA_END -->/d' {} \;
-
-          # Swap in staging .htaccess
           cp .htaccess-staging .htaccess
-
-          # Remove internals that must not ship
           rm -rf .git .claude .github .superpowers \
                  .htaccess-staging robots-staging.txt \
-                 .env.example SETUP.md
-          # Drop docs/ except whitelisted PDFs, specs, brand (harmless on staging but unnecessary)
+                 .env.example SETUP.md CLAUDE.md
           find docs -type f ! -name "*.pdf" -delete 2>/dev/null || true
           find docs -type d -empty -delete 2>/dev/null || true
 
@@ -40,7 +56,6 @@ jobs:
         env:
           LFTP_PASSWORD: ${{ secrets.OVH_PASSWORD }}
         run: |
-          sudo apt-get update -qq
           sudo apt-get install -y -qq lftp > /dev/null 2>&1
           lftp -u "${{ secrets.OVH_USERNAME }}","$LFTP_PASSWORD" \
             -e "set sftp:auto-confirm yes; set net:timeout 30; set net:max-retries 2; mirror -R --verbose . ${{ secrets.OVH_STAGING_DIR }}; quit" \
