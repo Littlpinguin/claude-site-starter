@@ -14,13 +14,15 @@ Thumbs.db
 # Node (optional tooling)
 node_modules/
 
-# Internal docs not deployed at runtime — content kept local only.
-# Specific whitelisted subfolders remain in git (see docs/README.md).
-docs/inspirations/
-docs/content/
-docs/drafts/
-docs/migration/
-!docs/**/README.md
+# Internal docs folders — contents gitignored, folder READMEs kept in git.
+docs/inspirations/*
+!docs/inspirations/README.md
+docs/content/*
+!docs/content/README.md
+docs/drafts/*
+!docs/drafts/README.md
+docs/migration/*
+!docs/migration/README.md
 
 # Superpowers ephemeral brainstorm state
 .superpowers/
