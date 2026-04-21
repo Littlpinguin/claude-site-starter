@@ -15,7 +15,7 @@ jobs:
         run: |
           rm -rf .git .claude .github .superpowers \
                  .htaccess-staging robots-staging.txt \
-                 .env.example SETUP.md CONTRIBUTING.md
+                 .env.example SETUP.md
           find docs -type f ! -name "*.pdf" -delete 2>/dev/null || true
           find docs -type d -empty -delete 2>/dev/null || true
 
